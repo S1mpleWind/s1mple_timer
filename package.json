@@ -1,6 +1,6 @@
 {
   "name": "s1mple-timer",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "main": "dist-electron/main.js",
   "description": "A simple mini timer with system notifications",
   "author": "GitHub Copilot",

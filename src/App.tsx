@@ -35,7 +35,7 @@ function formatRemain(sec: number) {
 
 export default function App() {
   const [now, setNow] = useState(new Date());
-  const [minutes, setMinutes] = useState(50);
+  const [minutesDraft, setMinutesDraft] = useState("50");
   const [remain, setRemain] = useState(50 * 60);
   const [running, setRunning] = useState(false);
 
@@ -50,9 +50,12 @@ export default function App() {
     }
 
     const syncState = (state: TimerState) => {
+      const durationMinutes = Math.max(1, Math.round(state.durationSec / 60));
       setRemain(state.remainingSec);
       setRunning(state.running);
-      setMinutes(Math.max(1, Math.round(state.durationSec / 60)));
+      if (!state.running) {
+        setMinutesDraft(String(durationMinutes));
+      }
     };
 
     const unsubscribe = window.timerApi.onTimerState(syncState);
@@ -82,9 +85,10 @@ export default function App() {
 
   const applyMinutes = async () => {
     if (running || !window.timerApi) return;
-    const m = Math.max(1, Math.min(180, minutes));
+    const parsed = Number.parseInt(minutesDraft, 10);
+    const m = Math.max(1, Math.min(180, Number.isFinite(parsed) ? parsed : 1));
     const nextState = await window.timerApi.applyMinutes(m);
-    setMinutes(Math.max(1, Math.round(nextState.durationSec / 60)));
+    setMinutesDraft(String(Math.max(1, Math.round(nextState.durationSec / 60))));
     setRemain(nextState.remainingSec);
     setRunning(nextState.running);
   };
@@ -303,8 +307,8 @@ export default function App() {
               type="number"
               min={1}
               max={180}
-              value={minutes}
-              onChange={(e) => setMinutes(Number(e.target.value || 1))}
+              value={minutesDraft}
+              onChange={(e) => setMinutesDraft(e.target.value)}
             />
             <button className="btn-apply" onClick={applyMinutes} disabled={running}>应用</button>
           </div>
