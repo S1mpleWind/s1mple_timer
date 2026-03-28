@@ -1,45 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+type TimerState = {
+  running: boolean;
+  durationSec: number;
+  remainingSec: number;
+};
 
 declare global {
   interface Window {
     timerApi?: {
-      notifyFinished: (usedMinutes: number) => Promise<boolean>;
+      getTimerState: () => Promise<TimerState>;
+      startTimer: () => Promise<TimerState>;
+      pauseTimer: () => Promise<TimerState>;
+      resetTimer: () => Promise<TimerState>;
+      applyMinutes: (minutes: number) => Promise<TimerState>;
+      onTimerState: (callback: (state: TimerState) => void) => () => void;
     };
   }
-}
-
-function buildReminderMessage(usedMinutes: number) {
-  return `你已经使用电脑${usedMinutes}min了，休息一下眼睛，起身走走吧`;
-}
-
-async function notifyTimerFinished(usedMinutes: number) {
-  const message = buildReminderMessage(usedMinutes);
-
-  try {
-    if (window.timerApi?.notifyFinished) {
-      await window.timerApi.notifyFinished(usedMinutes);
-      return;
-    }
-
-    if ("Notification" in window) {
-      if (Notification.permission === "granted") {
-        new Notification("S1mple Timer", { body: message });
-        return;
-      }
-
-      if (Notification.permission !== "denied") {
-        const permission = await Notification.requestPermission();
-        if (permission === "granted") {
-          new Notification("S1mple Timer", { body: message });
-          return;
-        }
-      }
-    }
-  } catch {
-    // 通知失败不应影响主界面运行
-  }
-
-  window.alert(message);
 }
 
 function pad(n: number) {
@@ -61,9 +38,6 @@ export default function App() {
   const [minutes, setMinutes] = useState(50);
   const [remain, setRemain] = useState(50 * 60);
   const [running, setRunning] = useState(false);
-  const timerRef = useRef<number | null>(null);
-  const endAtRef = useRef<number | null>(null);
-  const activeMinutesRef = useRef(50);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000);
@@ -71,66 +45,55 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!running) return;
+    if (!window.timerApi) {
+      return;
+    }
 
-    const tick = () => {
-      if (!endAtRef.current) return;
-
-      const nextRemain = Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000));
-      setRemain(nextRemain);
-
-      if (nextRemain <= 0) {
-        window.clearInterval(timerRef.current!);
-        timerRef.current = null;
-        endAtRef.current = null;
-        setRunning(false);
-        void notifyTimerFinished(activeMinutesRef.current);
-      }
+    const syncState = (state: TimerState) => {
+      setRemain(state.remainingSec);
+      setRunning(state.running);
+      setMinutes(Math.max(1, Math.round(state.durationSec / 60)));
     };
 
-    tick();
-    timerRef.current = window.setInterval(tick, 250);
+    const unsubscribe = window.timerApi.onTimerState(syncState);
+
+    void window.timerApi.getTimerState().then(syncState);
 
     return () => {
-      if (timerRef.current) {
-        window.clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      unsubscribe();
     };
-  }, [running]);
+  }, []);
 
   const canStart = useMemo(() => remain > 0 && !running, [remain, running]);
 
-  const start = () => {
-    if (!canStart) return;
-    activeMinutesRef.current = Math.max(1, Math.round(remain / 60));
-    endAtRef.current = Date.now() + remain * 1000;
-    setRunning(true);
+  const start = async () => {
+    if (!canStart || !window.timerApi) return;
+    const nextState = await window.timerApi.startTimer();
+    setRemain(nextState.remainingSec);
+    setRunning(nextState.running);
   };
 
-  const pause = () => {
-    if (!running) return;
-
-    if (endAtRef.current) {
-      const nextRemain = Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000));
-      setRemain(nextRemain);
-    }
-
-    endAtRef.current = null;
-    setRunning(false);
+  const pause = async () => {
+    if (!running || !window.timerApi) return;
+    const nextState = await window.timerApi.pauseTimer();
+    setRemain(nextState.remainingSec);
+    setRunning(nextState.running);
   };
 
-  const applyMinutes = () => {
-    if (running) return;
+  const applyMinutes = async () => {
+    if (running || !window.timerApi) return;
     const m = Math.max(1, Math.min(180, minutes));
-    setMinutes(m);
-    setRemain(m * 60);
+    const nextState = await window.timerApi.applyMinutes(m);
+    setMinutes(Math.max(1, Math.round(nextState.durationSec / 60)));
+    setRemain(nextState.remainingSec);
+    setRunning(nextState.running);
   };
 
-  const reset = () => {
-    endAtRef.current = null;
-    setRunning(false);
-    setRemain(minutes * 60);
+  const reset = async () => {
+    if (!window.timerApi) return;
+    const nextState = await window.timerApi.resetTimer();
+    setRemain(nextState.remainingSec);
+    setRunning(nextState.running);
   };
 
   return (
