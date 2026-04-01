@@ -1,6 +1,6 @@
 {
   "name": "s1mple-timer",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "main": "dist-electron/main.js",
   "description": "A simple mini timer with system notifications",
   "author": "GitHub Copilot",
@@ -9,7 +9,7 @@
     "build:web": "vite build",
     "build:electron": "tsc -p electron/tsconfig.json",
     "build": "npm run build:web && npm run build:electron",
-    "dist": "npm run build && cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ electron-builder --win portable"
+    "dist": "npm run build && cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ electron-builder --win portable --config.directories.output=release-portable"
   },
   "dependencies": {
     "react": "^18.2.0",

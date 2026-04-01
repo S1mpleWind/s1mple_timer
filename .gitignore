@@ -11,6 +11,7 @@ dist-electron/
 # release builds
 release/
 release-alt/
+release-portable/
 release_v*/
 
 # environment variables

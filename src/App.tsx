@@ -49,18 +49,18 @@ export default function App() {
       return;
     }
 
-    const syncState = (state: TimerState) => {
-      const durationMinutes = Math.max(1, Math.round(state.durationSec / 60));
+    const syncState = (state: TimerState, syncDraft: boolean) => {
       setRemain(state.remainingSec);
       setRunning(state.running);
-      if (!state.running) {
+      if (syncDraft && !state.running) {
+        const durationMinutes = Math.max(1, Math.round(state.durationSec / 60));
         setMinutesDraft(String(durationMinutes));
       }
     };
 
-    const unsubscribe = window.timerApi.onTimerState(syncState);
+    const unsubscribe = window.timerApi.onTimerState((state) => syncState(state, false));
 
-    void window.timerApi.getTimerState().then(syncState);
+    void window.timerApi.getTimerState().then((state) => syncState(state, true));
 
     return () => {
       unsubscribe();
@@ -81,6 +81,7 @@ export default function App() {
     const nextState = await window.timerApi.pauseTimer();
     setRemain(nextState.remainingSec);
     setRunning(nextState.running);
+    setMinutesDraft(String(Math.max(1, Math.round(nextState.durationSec / 60))));
   };
 
   const applyMinutes = async () => {
@@ -98,6 +99,7 @@ export default function App() {
     const nextState = await window.timerApi.resetTimer();
     setRemain(nextState.remainingSec);
     setRunning(nextState.running);
+    setMinutesDraft(String(Math.max(1, Math.round(nextState.durationSec / 60))));
   };
 
   return (
